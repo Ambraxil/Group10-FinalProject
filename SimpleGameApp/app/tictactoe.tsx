@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-// We use a safe-area helper library to ensure the back button is placed correctly
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // --- Global Types & Constants ---
@@ -144,7 +143,6 @@ export default function TicTacToeScreen() {
     </TouchableOpacity>
   );
 
-  // Helper function to render cell borders to make the board look like a single white card with black lines
   const getCellBorderStyle = (index: number) => {
     const borders = [];
     if (index % 3 !== 2) borders.push(styles.cellBorderRight); // add right border for col 0 and 1
@@ -157,20 +155,17 @@ export default function TicTacToeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.inner}>
-        {/* Spaced header with status and AI thinking indicator */}
         <View style={styles.headerContainer}>
           <Text style={styles.status}>{statusMsg}</Text>
           {aiThinking && <ActivityIndicator size="small" color="#666" style={{ marginTop: 8 }} />}
         </View>
 
-        {/* Board: Single large white card */}
         <View style={styles.boardCard}>
           <View style={styles.board}>
             {Array.from({ length: 9 }).map((_, i) => renderCell(i))}
           </View>
         </View>
 
-        {/* Scoreboard: Large X and O Icons with scores, matching the design images */}
         <View style={styles.scoreboardRow}>
           {/* O (You) */}
           <View style={styles.scoreItem}>
@@ -178,7 +173,6 @@ export default function TicTacToeScreen() {
             <Text style={styles.scoreValue}>{scoreboard.o}</Text>
           </View>
 
-          {/* Dash separator */}
           <Text style={styles.scoreSeparator}>-</Text>
 
           {/* X (AI) */}
@@ -188,7 +182,6 @@ export default function TicTacToeScreen() {
           </View>
         </View>
 
-        {/* Conditionally Render "Play Again" button when game ends */}
         {gameOver && (
           <TouchableOpacity style={styles.playAgainBtn} onPress={resetBoard} activeOpacity={0.8}>
             <Text style={styles.playAgainText}>Play Again?</Text>
@@ -196,9 +189,8 @@ export default function TicTacToeScreen() {
         )}
       </View>
 
-      {/* Dynamic back button in bottom left corner with light grey circle style */}
       <TouchableOpacity
-        style={[styles.backButton, { bottom: insets.bottom + 16 }]} // Place it based on safe area height
+        style={[styles.backButton, { bottom: insets.bottom + 16 }]}
         onPress={handleBack}
         activeOpacity={0.8}
       >
@@ -208,10 +200,7 @@ export default function TicTacToeScreen() {
   );
 }
 
-// --- Dynamic/Image-Matching Styles ---
-
 const styles = StyleSheet.create({
-  // Container uses the light lavender blue from your images
   container: {
     flex: 1,
     backgroundColor: '#cbd4fc',
@@ -219,7 +208,7 @@ const styles = StyleSheet.create({
   inner: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'space-evenly', // Highly spread out elements vertically
+    justifyContent: 'space-evenly',
     paddingHorizontal: 24,
     paddingVertical: 40,
   },
@@ -227,17 +216,16 @@ const styles = StyleSheet.create({
   // --- Header ---
   headerContainer: {
     alignItems: 'center',
-    height: 70, // Reserve height so layout doesn't jump during AI turn
+    height: 70,
   },
   status: {
     fontSize: 22,
-    color: '#0e0e1a', // Black text for high contrast on light background
+    color: '#0e0e1a',
     fontWeight: '600',
     textAlign: 'center',
   },
 
   // --- Board Card ---
-  // Large white card to match the look in your images
   boardCard: {
     backgroundColor: '#fff',
     borderRadius: 24,
@@ -254,18 +242,15 @@ const styles = StyleSheet.create({
     height: 270,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    // We add borders in code instead of using gap
   },
 
-  // --- Cells & Borders ---
   cell: {
-    width: 90, // We have exact widths now (270 / 3)
+    width: 90,
     height: 90,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff', // Pure white, matches card
+    backgroundColor: '#fff',
   },
-  // Sub-borders to create the black gridlines
   cellBorderRight: {
     borderRightWidth: 2,
     borderRightColor: '#0e0e1a',
@@ -275,18 +260,16 @@ const styles = StyleSheet.create({
     borderBottomColor: '#0e0e1a',
   },
   cellText: {
-    fontSize: 50, // Large icons within the cell
+    fontSize: 50,
   },
-  // O = Red, X = Blue, opposite of previous but matching image styles
   oText: {
-    color: '#e05c5c', // Light Red O
+    color: '#e05c5c',
   },
   xText: {
-    color: '#5b8ff9', // Light Blue X
+    color: '#5b8ff9',
   },
 
   // --- Scoreboard Row ---
-  // Replicating the design from the second-to-last image
   scoreboardRow: {
     flexDirection: 'row',
     alignItems: 'center',
