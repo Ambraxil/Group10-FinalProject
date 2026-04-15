@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons'; // Expo icons for the gear
+import { Ionicons } from '@expo/vector-icons';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -14,7 +14,6 @@ export default function HomeScreen() {
           <Text style={styles.titleText}>Simple Game{'\n'}App</Text>
         </View>
 
-        {/* Game Buttons Row */}
         <View style={styles.buttonRow}>
           <TouchableOpacity 
             style={styles.gameButton} 
@@ -33,7 +32,6 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Settings Button - Circular with Gear Icon */}
         <TouchableOpacity 
           style={styles.settingsButton} 
           onPress={() => router.push('/settings')}
