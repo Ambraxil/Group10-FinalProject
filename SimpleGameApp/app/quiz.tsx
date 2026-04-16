@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
+import { supabase } from '../lib/supabase';
 
 type Question = {
   question: string;
@@ -123,6 +124,35 @@ const shuffleArray = (array: Question[]) => {
 export default function QuizScreen() {
   const router = useRouter();
 
+  const saveScoreToSupabase = async (finalScore: number) => {
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        console.log('No authenticated user');
+        return;
+      }
+
+      const { error } = await supabase.from('quiz_scores').insert([
+        {
+          email: user.email,
+          score: finalScore,
+        },
+      ]);
+
+      if (error) {
+        console.log('Insert error:', error.message);
+      } else {
+        console.log('Score saved successfully');
+      }
+    } catch (err) {
+      console.log('Unexpected error saving score:', err);
+    }
+  };
+
   const [quizQuestions, setQuizQuestions] = useState<Question[]>(
     shuffleArray(originalQuestions)
   );
@@ -145,15 +175,19 @@ export default function QuizScreen() {
     }
   };
 
-  const handleNextPress = () => {
+  const handleNextPress = async () => {
     if (!selectedAnswer) {
       Alert.alert('Select an answer', 'Please choose an answer before pressing Next.');
       return;
     }
 
     const isLastQuestion = currentQuestionIndex === quizQuestions.length - 1;
+    const isCorrect = selectedAnswer === currentQuestion.correctAnswer;
+    const updatedScore = isCorrect ? score : score;
 
     if (isLastQuestion) {
+      await saveScoreToSupabase(updatedScore);
+      setScore(updatedScore);
       setQuizFinished(true);
       return;
     }
@@ -181,7 +215,7 @@ export default function QuizScreen() {
   } else if (score >= 10) {
     motivationMessage = 'Nice effort! You are doing well! 🔥';
   } else {
-    motivationMessage = 'Good try! YOU NEED TO PRACTICE MORE 😂 ';
+    motivationMessage = 'Good try! You need more practice!';
   }
 
   if (quizFinished) {
