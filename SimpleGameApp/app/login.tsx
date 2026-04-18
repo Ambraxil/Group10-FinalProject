@@ -1,84 +1,70 @@
-import React, { useState, useEffect } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "expo-router";
+import React, { useState } from "react";
+import { Controller, useForm } from "react-hook-form";
 import {
-  View,
-  TextInput,
-  Alert,
-  StyleSheet,
-  Text,
   ActivityIndicator,
   SafeAreaView,
+  StyleSheet,
+  Text,
+  TextInput,
   TouchableOpacity,
+  View,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { z } from "zod";
 import { supabase } from "../lib/supabase";
+
+/*
+ZOD VALIDATION SCHEMA
+*/
+
+const schema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  password: z
+    .string()
+    .min(6, "Password must be at least 6 characters"),
+});
+
+type FormData = z.infer<typeof schema>;
 
 export default function LoginScreen() {
   const router = useRouter();
+  const [serverError, setServerError] = useState("");
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(true);
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      email: "",
+      password: "",
+    },
+  });
 
-  useEffect(() => {
-    const checkSession = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+  const login = async (data: FormData) => {
+    setServerError("");
 
-      if (session) {
-        router.replace("/");
+    const { error } = await supabase.auth.signInWithPassword({
+      email: data.email.trim(),
+      password: data.password,
+    });
+
+    if (error) {
+      if (error.message.includes("Invalid login credentials")) {
+        setServerError("Invalid email or password.");
+      } else if (error.message.includes("network")) {
+        setServerError("Network error. Check your connection.");
       } else {
-        setCheckingSession(false);
+        setServerError(error.message);
       }
-    };
 
-    checkSession();
-  }, [router]);
-
-  const login = async () => {
-    if (!email || !password) {
-      Alert.alert("Missing info", "Please enter email and password.");
       return;
     }
 
-    try {
-      setLoading(true);
-
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        Alert.alert("Login error", error.message);
-        return;
-      }
-
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      console.log("Logged in user:", user);
-
-      router.replace("/");
-    } catch (err) {
-      Alert.alert("Error", "Something went wrong during login.");
-    } finally {
-      setLoading(false);
-    }
+    router.replace("/");
   };
-
-  if (checkingSession) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#0e0e1a" />
-          <Text style={styles.loadingText}>Checking session...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -88,45 +74,83 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.formCard}>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter Email"
-            placeholderTextColor="#777"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
+          {/* EMAIL FIELD */}
+
+          <Controller
+            control={control}
+            name="email"
+            render={({ field: { onChange, value } }) => (
+              <TextInput
+                style={styles.input}
+                placeholder="Enter Email"
+                placeholderTextColor="#777"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={value}
+                onChangeText={onChange}
+              />
+            )}
           />
 
-          <TextInput
-            style={styles.input}
-            placeholder="Enter Password"
-            placeholderTextColor="#777"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
+          {errors.email && (
+            <Text style={styles.errorText}>
+              {errors.email.message}
+            </Text>
+          )}
+
+          {/* PASSWORD FIELD */}
+
+          <Controller
+            control={control}
+            name="password"
+            render={({ field: { onChange, value } }) => (
+              <TextInput
+                style={styles.input}
+                placeholder="Enter Password"
+                placeholderTextColor="#777"
+                secureTextEntry
+                value={value}
+                onChangeText={onChange}
+              />
+            )}
           />
+
+          {errors.password && (
+            <Text style={styles.errorText}>
+              {errors.password.message}
+            </Text>
+          )}
+
+          {/* SERVER ERROR */}
+
+          {serverError !== "" && (
+            <Text style={styles.errorText}>
+              {serverError}
+            </Text>
+          )}
         </View>
 
         <View style={styles.footer}>
           <TouchableOpacity
             style={styles.mainButton}
-            onPress={login}
-            activeOpacity={0.8}
-            disabled={loading}
+            onPress={handleSubmit(login)}
+            disabled={isSubmitting}
           >
-            <Text style={styles.mainButtonText}>
-              {loading ? "Please wait..." : "Login"}
-            </Text>
+            {isSubmitting ? (
+              <ActivityIndicator />
+            ) : (
+              <Text style={styles.mainButtonText}>Login</Text>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.secondaryButton}
             onPress={() => router.push("/signup")}
-            activeOpacity={0.8}
-            disabled={loading}
+            disabled={isSubmitting}
           >
-            <Text style={styles.secondaryButtonText}>Create New Account</Text>
+            <Text style={styles.secondaryButtonText}>
+              Create New Account
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -146,43 +170,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     gap: 28,
   },
-  loadingContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#0e0e1a",
-  },
   titleCard: {
     backgroundColor: "#fff",
     borderRadius: 30,
     paddingVertical: 26,
     width: "85%",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
     elevation: 5,
   },
   titleText: {
     fontSize: 32,
     fontWeight: "700",
     color: "#0e0e1a",
-    textAlign: "center",
   },
   formCard: {
     backgroundColor: "#fff",
     width: "100%",
     borderRadius: 25,
     padding: 24,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
     elevation: 4,
   },
   input: {
@@ -192,7 +197,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 16,
     color: "#0e0e1a",
-    marginBottom: 16,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: "#e4e7fb",
   },
@@ -208,7 +213,6 @@ const styles = StyleSheet.create({
     minWidth: 220,
     alignItems: "center",
     marginBottom: 14,
-    shadowOpacity: 0.1,
     elevation: 3,
   },
   mainButtonText: {
@@ -223,12 +227,15 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     minWidth: 220,
     alignItems: "center",
-    shadowOpacity: 0.1,
     elevation: 3,
   },
   secondaryButtonText: {
     fontSize: 18,
     fontWeight: "600",
     color: "#0e0e1a",
+  },
+  errorText: {
+    color: "red",
+    marginBottom: 10,
   },
 });

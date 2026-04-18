@@ -1,53 +1,82 @@
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useRouter } from "expo-router";
 import React, { useState } from "react";
+import { Controller, useForm } from "react-hook-form";
 import {
-  View,
-  TextInput,
-  Alert,
+  ActivityIndicator,
+  SafeAreaView,
   StyleSheet,
   Text,
-  SafeAreaView,
+  TextInput,
   TouchableOpacity,
+  View,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { z } from "zod";
 import { supabase } from "../lib/supabase";
+
+const schema = z
+  .object({
+    email: z.string().email("Please enter a valid email address"),
+    password: z.string().min(6, "Password must be at least 6 characters"),
+    confirmPassword: z.string().min(6, "Please confirm your password"),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
+type FormData = z.infer<typeof schema>;
 
 export default function SignupScreen() {
   const router = useRouter();
+  const [serverError, setServerError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      email: "",
+      password: "",
+      confirmPassword: "",
+    },
+  });
 
-  const signup = async () => {
-    if (!email || !password) {
-      Alert.alert("Missing info", "Please enter email and password.");
+  const signup = async (data: FormData) => {
+    setServerError("");
+    setSuccessMessage("");
+
+    const { error } = await supabase.auth.signUp({
+      email: data.email.trim(),
+      password: data.password,
+    });
+
+    if (error) {
+      if (
+        error.message.toLowerCase().includes("user already registered")
+      ) {
+        setServerError("This email is already registered.");
+      } else if (
+        error.message.toLowerCase().includes("password") ||
+        error.message.toLowerCase().includes("weak")
+      ) {
+        setServerError("Password is too weak. Use at least 6 characters.");
+      } else if (
+        error.message.toLowerCase().includes("network") ||
+        error.message.toLowerCase().includes("fetch")
+      ) {
+        setServerError("Network error. Check your connection.");
+      } else {
+        setServerError(error.message);
+      }
       return;
     }
 
-    try {
-      setLoading(true);
-
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-
-      if (error) {
-        Alert.alert("Signup error", error.message);
-        return;
-      }
-
-      Alert.alert(
-        "Success",
-        "Account created successfully. Please login now."
-      );
-
-      router.replace("/login");
-    } catch (err) {
-      Alert.alert("Error", "Something went wrong during signup.");
-    } finally {
-      setLoading(false);
-    }
+    setSuccessMessage("Account created successfully. Please login now.");
+    router.replace("/login");
   };
 
   return (
@@ -58,42 +87,90 @@ export default function SignupScreen() {
         </View>
 
         <View style={styles.formCard}>
-          <TextInput
-            style={styles.input}
-            placeholder="Enter Email"
-            placeholderTextColor="#777"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
+          <Controller
+            control={control}
+            name="email"
+            render={({ field: { onChange, value } }) => (
+              <TextInput
+                style={styles.input}
+                placeholder="Enter Email"
+                placeholderTextColor="#777"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={value}
+                onChangeText={onChange}
+              />
+            )}
           />
+          {errors.email && (
+            <Text style={styles.errorText}>{errors.email.message}</Text>
+          )}
 
-          <TextInput
-            style={styles.input}
-            placeholder="Enter Password"
-            placeholderTextColor="#777"
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
+          <Controller
+            control={control}
+            name="password"
+            render={({ field: { onChange, value } }) => (
+              <TextInput
+                style={styles.input}
+                placeholder="Enter Password"
+                placeholderTextColor="#777"
+                secureTextEntry
+                value={value}
+                onChangeText={onChange}
+              />
+            )}
           />
+          {errors.password && (
+            <Text style={styles.errorText}>{errors.password.message}</Text>
+          )}
+
+          <Controller
+            control={control}
+            name="confirmPassword"
+            render={({ field: { onChange, value } }) => (
+              <TextInput
+                style={styles.input}
+                placeholder="Confirm Password"
+                placeholderTextColor="#777"
+                secureTextEntry
+                value={value}
+                onChangeText={onChange}
+              />
+            )}
+          />
+          {errors.confirmPassword && (
+            <Text style={styles.errorText}>
+              {errors.confirmPassword.message}
+            </Text>
+          )}
+
+          {serverError !== "" && (
+            <Text style={styles.errorText}>{serverError}</Text>
+          )}
+
+          {successMessage !== "" && (
+            <Text style={styles.successText}>{successMessage}</Text>
+          )}
         </View>
 
         <View style={styles.footer}>
           <TouchableOpacity
             style={styles.mainButton}
-            onPress={signup}
-            disabled={loading}
+            onPress={handleSubmit(signup)}
+            disabled={isSubmitting}
             activeOpacity={0.8}
           >
-            <Text style={styles.mainButtonText}>
-              {loading ? "Please wait..." : "Create Account"}
-            </Text>
+            {isSubmitting ? (
+              <ActivityIndicator />
+            ) : (
+              <Text style={styles.mainButtonText}>Create Account</Text>
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.secondaryButton}
             onPress={() => router.replace("/login")}
-            disabled={loading}
+            disabled={isSubmitting}
             activeOpacity={0.8}
           >
             <Text style={styles.secondaryButtonText}>Back to Login</Text>
@@ -122,7 +199,6 @@ const styles = StyleSheet.create({
     paddingVertical: 26,
     width: "85%",
     alignItems: "center",
-    shadowOpacity: 0.1,
     elevation: 5,
   },
   titleText: {
@@ -135,7 +211,6 @@ const styles = StyleSheet.create({
     width: "100%",
     borderRadius: 25,
     padding: 24,
-    shadowOpacity: 0.1,
     elevation: 4,
   },
   input: {
@@ -145,7 +220,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 16,
     color: "#0e0e1a",
-    marginBottom: 16,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: "#e4e7fb",
   },
@@ -161,7 +236,6 @@ const styles = StyleSheet.create({
     minWidth: 220,
     alignItems: "center",
     marginBottom: 14,
-    shadowOpacity: 0.1,
     elevation: 3,
   },
   mainButtonText: {
@@ -176,12 +250,21 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     minWidth: 220,
     alignItems: "center",
-    shadowOpacity: 0.1,
     elevation: 3,
   },
   secondaryButtonText: {
     fontSize: 18,
     fontWeight: "600",
     color: "#0e0e1a",
+  },
+  errorText: {
+    color: "red",
+    marginBottom: 10,
+    fontSize: 14,
+  },
+  successText: {
+    color: "green",
+    marginBottom: 10,
+    fontSize: 14,
   },
 });
